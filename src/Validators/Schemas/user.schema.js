@@ -38,34 +38,10 @@ export const resetPasswordSchema = {
   }),
 };
 
-export const updateSchema = {
-  body: Joi.object({
-    firstName: Joi.string().min(3).max(10),
-    lastName: Joi.string().min(3).max(10),
-    email: Joi.string().email(),
-    gender: Joi.string().valid("male", "female"),
-  }),
-};
-
-export const profileDataSchema = {
-  params: Joi.object({
-    id: Joi.string().hex().length(24),
-  }),
-};
-
 export const updatePasswordSchema = {
   body: Joi.object({
     currentPassword: Joi.string().required(),
     newPassword: Joi.string().required(),
     confirmPassword: Joi.string().valid(Joi.ref("newPassword")).required().messages({ "any.only": "Passwords must match" }),
-  }),
-};
-
-export const messgaeStatusSchema = {
-  body: Joi.object({
-    messageState: Joi.string().valid("private", "public").required(),
-  }),
-  params: Joi.object({
-    messageId: Joi.string().hex().length(24),
   }),
 };

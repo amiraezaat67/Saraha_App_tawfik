@@ -1,5 +1,4 @@
-import { messages } from "../../../DB/Models/messages.model.js";
-import { users } from "../../../DB/Models/users.model.js";
+import { users, messages } from "../../../DB/Models/index.js";
 
 export const sendMessageServices = async (req, res) => {
   // get message content from body and the user from the params
