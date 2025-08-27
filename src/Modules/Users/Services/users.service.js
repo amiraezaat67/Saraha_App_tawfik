@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { users, messages } from "../../../DB/Models/index.js";
+import { setEngine } from "crypto";
 
 export const updateService = async (req, res) => {
   const {
@@ -24,12 +26,27 @@ export const deleteService = async (req, res) => {
     user: { _id },
   } = req.loggedData;
 
-  // delete the user
-  const deletedUser = await users.findByIdAndDelete({ _id });
+  // start session
+  const session = await mongoose.startSession();
+  // send the session to the req to be catch if there is an error
+  req.session = session;
 
+  // start Transaction
+  session.startTransaction();
+
+  // delete the user
+  const deletedUser = await users.findByIdAndDelete({ _id }, { session });
   if (!deletedUser) {
     return req.status(400).json({ msh: `user is not Found` });
   }
+
+  //delete the messages of the user
+  await messages.deleteMany({ receiverId: _id }, { session });
+
+  // commit the transaction
+  await session.commitTransaction();
+  // end the session
+  session.endSession();
 
   res.status(200).json({ msg: `user has been deleted` });
 };

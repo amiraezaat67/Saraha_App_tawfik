@@ -16,6 +16,11 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (req.session.inTransaction()) {
+    req.session.abortTransaction();
+    req.session.endSession();
+    res.status(500).json({ msg: `transaction has aborted`, error: err });
+  }
   res.status(500).json({ msg: `Server Error`, error: err });
 });
 
