@@ -1,5 +1,6 @@
 import "./config.js";
 import express from "express";
+import helmet from "helmet";
 import { dbConnection } from "./DB/db.connection.js";
 import { userRouter, authRouter, messagesRouter } from "./Modules/controllers.index.js";
 
@@ -7,6 +8,7 @@ const app = express();
 dbConnection();
 
 app.use(express.json());
+app.use(helmet());
 
 app.use("/users", userRouter, authRouter);
 app.use("/messages", messagesRouter);
