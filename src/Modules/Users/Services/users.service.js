@@ -8,9 +8,11 @@ export const updateService = async (req, res) => {
   const { firstName, lastName, email, gender } = req.body;
 
   // check if ths email is already exist
-  const dublicatedUser = await users.findOne({ email });
-  if (dublicatedUser._id.toString() != _id.toString()) {
-    return res.status(400).json({ msg: `this email is already exist` });
+  if (email) {
+    const dublicatedUser = await users.findOne({ email });
+    if (dublicatedUser._id.toString() != _id.toString()) {
+      return res.status(400).json({ msg: `this email is already exist` });
+    }
   }
 
   // update the user

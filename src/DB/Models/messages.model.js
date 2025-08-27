@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { messagePrivicyEnum } from "../../Common/Enums/message.enum.js";
 
 const messagesSchema = mongoose.Schema(
   {
@@ -12,8 +13,8 @@ const messagesSchema = mongoose.Schema(
     },
     status: {
       type: String,
-      enmu: ["public", "private"],
-      default: "private",
+      enmu: Object.values(messagePrivicyEnum),
+      default: messagePrivicyEnum.PRIVATE,
     },
   },
   {
