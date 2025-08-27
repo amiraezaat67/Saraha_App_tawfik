@@ -6,6 +6,7 @@ import { registerationSchema, loginSchema, forgetPasswordSchema, confirmSchema, 
 const authRouter = Router();
 
 authRouter.post("/register", validationMiddleware(registerationSchema), services.registerServices);
+authRouter.post("/auth-gmail", services.gmailAuthService);
 authRouter.post("/login", validationMiddleware(loginSchema), services.loginService);
 authRouter.post("/logout", authenticationMiddleware, services.logoutService);
 authRouter.post("/forget-Password", validationMiddleware(forgetPasswordSchema), services.forgetPasswordService);

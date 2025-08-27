@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { genderEnum, providerEnum } from "../../common/Enums/user.enum.js";
 
 const usersSchema = mongoose.Schema(
   {
@@ -7,14 +8,12 @@ const usersSchema = mongoose.Schema(
       required: true,
       minLength: [3, "Name must be at least 3 characters"],
       maxLength: 10,
-      trim: true,
     },
     lastName: {
       type: String,
       required: true,
       minLength: [3, "Name must be at least 3 characters"],
       maxLength: 10,
-      trim: true,
     },
     email: {
       type: String,
@@ -24,7 +23,6 @@ const usersSchema = mongoose.Schema(
     },
     phoneNumber: {
       type: String,
-      required: true,
     },
     password: {
       type: String,
@@ -32,8 +30,8 @@ const usersSchema = mongoose.Schema(
     },
     gneder: {
       type: String,
-      enum: ["male", "female"],
-      default: "male",
+      enum: Object.values(genderEnum),
+      default: genderEnum.MALE,
     },
     otps: {
       confirm: {
@@ -46,6 +44,12 @@ const usersSchema = mongoose.Schema(
     isConfirmed: {
       type: Boolean,
       default: false,
+    },
+    googleSub: String,
+    providers: {
+      type: String,
+      enum: Object.values(providerEnum),
+      default: providerEnum.LOCAL,
     },
   },
   {

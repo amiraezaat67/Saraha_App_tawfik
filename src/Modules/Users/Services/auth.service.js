@@ -1,8 +1,9 @@
 import { users, blackListTokens } from "../../../DB/Models/index.js";
 import { generateToken, verifyToken, encrypt, emitter } from "../../../Utils/index.js";
 import bycrpt from "bcrypt";
-import { customAlphabet } from "nanoid";
+import { customAlphabet, nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
+import { OAuth2Client } from "google-auth-library";
 
 export const registerServices = async (req, res) => {
   // get data from body
@@ -11,6 +12,9 @@ export const registerServices = async (req, res) => {
   // find the email
   const findUser = await users.findOne({ email });
   if (findUser) {
+    if ((findUser.providers = "google")) {
+      return res.status(400).json({ msg: `User Already exist, Try to login using google` });
+    }
     return res.status(400).json({ msg: `User Already exist` });
   }
 
@@ -37,9 +41,98 @@ export const registerServices = async (req, res) => {
   const hashedOTP = await bycrpt.hash(OTP, parseInt(process.env.SALT_ROUNDS));
 
   // add the user to DB
-  users.create({ firstName, lastName, email, password: hashedPassword, phoneNumber: encryptedPhoneNumber, gender, otps: { confirm: hashedOTP } });
+  users.create({ firstName, lastName, email, password: hashedPassword, phoneNumber: encryptedPhoneNumber, gender, otps: { confirm: hashedOTP, providers: "local" } });
 
   res.status(201).json({ msg: `Registered successfully, now please confirm your email` });
+};
+
+export const gmailAuthService = async (req, res) => {
+  // get the idToken from the req body
+  const { idToken } = req.body;
+
+  // verfiy the token using google-auth-library
+  const client = new OAuth2Client();
+  const ticket = await client.verifyIdToken({
+    idToken: idToken,
+    audience: process.env.WEB_CLIENT_ID,
+  });
+  const { sub, email, email_verified, given_name, family_name } = ticket.getPayload();
+
+  // check if this email is not verified from google
+  if (!email_verified) {
+    return res.status(400).json({ msg: `this email is not verified` });
+  }
+
+  const findUser = await users.findOne({ googleSub: sub });
+  let user;
+
+  // if user already logged in using goole, update his data
+  if (findUser) {
+    user = findUser;
+    user.email = email;
+    user.firstName = given_name;
+    user.lastName = family_name ? family_name : user.lastName;
+    user.providers = "google";
+    await user.save();
+  }
+
+  // if user is not logged in using google:
+  else {
+    // check if this user is not logged in using local signup
+    const localUser = await users.findOne({ email, providers: "local" });
+    if (localUser) {
+      user = localUser;
+      user.email = email;
+      user.firstName = given_name;
+      user.lastName = family_name ? family_name : user.lastName;
+      user.isConfirmed = true;
+      user.googleSub = sub;
+      user.otps.confirm = undefined;
+      user.providers = "google";
+      await user.save();
+    } else {
+      // create new user
+      user = await users.create({
+        firstName: given_name,
+        lastName: family_name || " ",
+        email,
+        password: bycrpt.hashSync(nanoid(), parseInt(process.env.SALT_ROUNDS)),
+        isConfirmed: true,
+        googleSub: sub,
+        providers: "google",
+      });
+    }
+  }
+
+  // generate token
+  const accessTokenId = uuidV4();
+  // access token
+  const accessToken = generateToken(
+    {
+      _id: user._id,
+      email,
+    },
+    process.env.JWT_ACCESS_KEY,
+    {
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
+      jwtid: accessTokenId,
+    }
+  );
+
+  // refresh token
+  const refreshToken = generateToken(
+    {
+      _id: user._id,
+      email,
+    },
+    process.env.JWT_REFRESH_KEY,
+    {
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+      jwtid: uuidV4(),
+    }
+  );
+
+  res.status(200).json({ msg: `User loggin successfully`, accessToken, refreshToken });
 };
 
 export const confirmService = async (req, res) => {

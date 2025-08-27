@@ -1,14 +1,26 @@
 import "./config.js";
 import express from "express";
 import helmet from "helmet";
+import cors from "cors";
 import { dbConnection } from "./DB/db.connection.js";
 import { userRouter, authRouter, messagesRouter } from "./Modules/controllers.index.js";
 
 const app = express();
 dbConnection();
 
+const whitelist = process.env.WHITELIST;
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (whitelist.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+};
+
 app.use(express.json());
-app.use(helmet());
+app.use(cors(corsOptions), helmet());
 
 app.use("/users", userRouter, authRouter);
 app.use("/messages", messagesRouter);
@@ -18,7 +30,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  if (req.session.inTransaction()) {
+  if (req.session?.inTransaction()) {
     req.session.abortTransaction();
     req.session.endSession();
     res.status(500).json({ msg: `transaction has aborted`, error: err });
