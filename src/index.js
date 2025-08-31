@@ -4,6 +4,7 @@ import helmet from "helmet";
 import cors from "cors";
 import { dbConnection } from "./DB/db.connection.js";
 import { userRouter, authRouter, messagesRouter } from "./Modules/controllers.index.js";
+import { limit } from "./Middlewares/index.js";
 
 const app = express();
 dbConnection();
@@ -20,7 +21,17 @@ const corsOptions = {
 };
 
 app.use(express.json());
-app.use(cors(corsOptions), helmet());
+app.use(
+  cors(corsOptions),
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        "script-src": ["'self'", "'unsafe-inline'"],
+      },
+    },
+  }),
+  limit
+);
 
 app.use("/users", userRouter, authRouter);
 app.use("/messages", messagesRouter);
