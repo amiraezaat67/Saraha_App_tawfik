@@ -9,3 +9,8 @@ export const generateToken = (payload, key, options) => {
 export const verifyToken = (token, key) => {
   return jwt.verify(token, key);
 };
+
+// decode token "to only get the payload wihtout verfing"
+export const decodeToken = (token) => {
+  return jwt.decode(token);
+};
