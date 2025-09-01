@@ -60,6 +60,12 @@ const usersSchema = mongoose.Schema(
       enum: Object.values(providerEnum),
       default: providerEnum.LOCAL,
     },
+    devicesConnected: [
+      {
+        jti: { type: String },
+        exp: { type: Date },
+      },
+    ],
   },
   {
     timestamps: true,

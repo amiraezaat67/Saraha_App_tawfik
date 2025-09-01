@@ -1,5 +1,5 @@
 import { users, blackListTokens } from "../../../DB/Models/index.js";
-import { generateToken, verifyToken, encrypt, emitter } from "../../../Utils/index.js";
+import { generateToken, verifyToken, encrypt, emitter, decodeToken } from "../../../Utils/index.js";
 import bycrpt from "bcrypt";
 import { customAlphabet, nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
@@ -216,13 +216,20 @@ export const loginService = async (req, res) => {
     return res.status(400).json({ msg: `This email is not verified yet` });
   }
 
+  // check for the number of logged in devices
+  if (user.devicesConnected?.length >= process.env.MAX_DEVICE_CONNECTED) {
+    return res.status(400).json({ msg: `You need to signOut from one of your connected devices to login` });
+  }
+
   // generate token
   const accessTokenId = uuidV4();
+  const refreshTokenId = uuidV4();
   // access token
   const accessToken = generateToken(
     {
       _id: user._id,
       email,
+      refreshTokenId,
     },
     process.env.JWT_ACCESS_KEY,
     {
@@ -240,22 +247,38 @@ export const loginService = async (req, res) => {
     process.env.JWT_REFRESH_KEY,
     {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      jwtid: uuidV4(),
+      jwtid: refreshTokenId,
     }
   );
 
-  res.status(200).json({ msg: `User loggin successfully`, accessToken, refreshToken });
+  // insert the connected device data
+  const { jti, exp } = decodeToken(refreshToken);
+
+  user.devicesConnected?.push({ jti, exp: new Date(exp * 1000) });
+  await user.save();
+
+  res.status(200).json({ msg: `User logged In successfully`, accessToken, refreshToken });
 };
 
 export const logoutService = async (req, res) => {
   // get the token
-  const { tokenData } = req.loggedData;
+  const { user, tokenData } = req.loggedData;
 
   // Revoke the token
   blackListTokens.create({
     tokenId: tokenData.jti,
     expirationDate: new Date(tokenData.exp * 1000),
   });
+
+  // decrimint the conected devices
+  for (const [index, device] of user.devicesConnected.entries()) {
+    if (device.jti == tokenData.refreshTokenId) {
+      user.devicesConnected.splice(index, 1);
+      if (user.devicesConnected.length == 0) user.devicesConnected = undefined;
+      await user.save();
+      break;
+    }
+  }
 
   res.status(200).json({ msg: `logged out successfully` });
 };
@@ -301,7 +324,7 @@ export const forgetPasswordService = async (req, res) => {
   const hashedRecoveryOTP = await bycrpt.hash(recoveryOTP, parseInt(process.env.SALT_ROUNDS));
 
   // store the otp in db and the time for expiration
-  await user.updateOne({ otps: { recovery: hashedRecoveryOTP, expiration: new Date(Date.now() + parseInt(process.env.RESEND_OTP_TIME) * 60 * 1000), attemptNumber: 1 } });
+  await user.updateOne({ otps: { recovery: hashedRecoveryOTP, expiration: new Date(Date.now() + parseInt(process.env.RESEND_OTP_TIME) * 60 * 1000) } });
 
   res.status(200).json({ msg: `please check your email`, recoveryToken });
 };
@@ -331,8 +354,8 @@ export const resetPasswordService = async (req, res) => {
   // if it is correct , hash the new password
   const hashedPassword = await bycrpt.hash(newPassword, parseInt(process.env.SALT_ROUNDS));
 
-  // update the password
-  await user.updateOne({ password: hashedPassword, otps: {} });
+  // update the password and desconnect all the devices
+  await user.updateOne({ password: hashedPassword, otps: {}, $unset: { devicesConnected: "" } });
 
   res.status(200).json({ msg: `Password has been changed, Now try to login` });
 };
@@ -349,6 +372,7 @@ export const refreshTokenServices = async (req, res) => {
     {
       _id: decodedData._id,
       email: decodedData.email,
+      refreshTokenId: decodeToken(refreshtoken).jti,
     },
     process.env.JWT_ACCESS_KEY,
     {
