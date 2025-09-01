@@ -12,10 +12,12 @@ export const registerServices = async (req, res) => {
   // find the email
   const findUser = await users.findOne({ email });
   if (findUser) {
-    if ((findUser.providers = "google")) {
+    if (findUser.providers == "google") {
       return res.status(400).json({ msg: `User Already exist, Try to login using google` });
     }
-    return res.status(400).json({ msg: `User Already exist` });
+    if (findUser.isConfirmed == false) {
+      await users.findByIdAndDelete(findUser._id);
+    }
   }
 
   // encryp phneNumber
@@ -41,9 +43,31 @@ export const registerServices = async (req, res) => {
   const hashedOTP = await bycrpt.hash(OTP, parseInt(process.env.SALT_ROUNDS));
 
   // add the user to DB
-  users.create({ firstName, lastName, email, password: hashedPassword, phoneNumber: encryptedPhoneNumber, gender, otps: { confirm: hashedOTP, providers: "local" } });
+  const user = await users.create({
+    firstName,
+    lastName,
+    email,
+    password: hashedPassword,
+    phoneNumber: encryptedPhoneNumber,
+    gender,
+    otps: { confirm: hashedOTP, expiration: new Date(Date.now() + parseInt(process.env.RESEND_OTP_TIME) * 60 * 1000), attemptNumber: 1 },
+    providers: "local",
+  });
 
-  res.status(201).json({ msg: `Registered successfully, now please confirm your email` });
+  // create auth token
+  const authenticationToken = generateToken(
+    {
+      _id: user._id,
+      email,
+    },
+    process.env.JWT_AUTH_KEY,
+    {
+      expiresIn: process.env.JWT_AUTH_EXPIRES_IN,
+      jwtid: uuidV4(),
+    }
+  );
+
+  res.status(201).json({ msg: `Registered successfully, now please confirm your email`, authenticationToken });
 };
 
 export const gmailAuthService = async (req, res) => {
@@ -136,14 +160,9 @@ export const gmailAuthService = async (req, res) => {
 };
 
 export const confirmService = async (req, res) => {
-  // get the otp and the email from the user
-  const { otp, email } = req.body;
-
-  // check if this email does not exist
-  const user = await users.findOne({ email });
-  if (!user) {
-    return res.status(404).json({ msg: `this email does not exist` });
-  }
+  // get the otp from the user and user from token
+  const { otp } = req.body;
+  const { user } = req.loggedData;
 
   // check if the user already confirmed before
   if (user.isConfirmed) {
@@ -156,21 +175,31 @@ export const confirmService = async (req, res) => {
   // compaite the OTPs together
   const otpIsMatched = await bycrpt.compare(otp.toString(), correctOtp);
   if (!otpIsMatched) {
-    return res.status(400).json({ msg: `worng OTP, please try again` });
+    const remainingTime = (user.otps.expiration - new Date()) / 1000;
+    const remainingTimeMessage = remainingTime < 0 ? `Now` : `after ${remainingTime} sec`;
+
+    return res.status(400).json({ msg: `worng OTP, please try again , you can resend email ${remainingTimeMessage}` });
   }
 
   // if it is correct , delete the otp from db
-  await user.updateOne({ isConfirmed: true, otps: { confirm: undefined } });
+  await user.updateOne({ isConfirmed: true, otps: {} });
 
-  res.status(200).json({ msg: `email has been confirmed` });
+  res.status(200).json({ msg: `email has been confirmed, Now please sing in` });
 };
 
 export const loginService = async (req, res) => {
   // get the email and passowrd
   const { email, password } = req.body;
 
-  // check the email and password
+  // get the user data
   const user = await users.findOne({ email });
+
+  // check if the user registerd locally or not
+  if (user?.providers == "google") {
+    return res.status(400).json({ msg: `Try login with google` });
+  }
+
+  // check for email and password
   if (user) {
     const checkPassword = await bycrpt.compare(password.toString(), user.password);
     if (!checkPassword) {
@@ -247,15 +276,15 @@ export const forgetPasswordService = async (req, res) => {
       _id: user._id,
       email,
     },
-    process.env.JWT_RECOVERY_KEY,
+    process.env.JWT_AUTH_KEY,
     {
-      expiresIn: process.env.JWT_RECOVERY_EXPIRES_IN,
+      expiresIn: process.env.JWT_AUTH_EXPIRES_IN,
       jwtid: uuidV4(),
     }
   );
 
   // create OTP
-  const nanoid = customAlphabet("1234567890ABCDEFG", 6);
+  const nanoid = customAlphabet("1234567890", 6);
   const recoveryOTP = nanoid();
 
   // send email with the otp
@@ -271,8 +300,8 @@ export const forgetPasswordService = async (req, res) => {
   // hash the OTP before sending to db
   const hashedRecoveryOTP = await bycrpt.hash(recoveryOTP, parseInt(process.env.SALT_ROUNDS));
 
-  // store the otp in db
-  await user.updateOne({ otps: { recovery: hashedRecoveryOTP } });
+  // store the otp in db and the time for expiration
+  await user.updateOne({ otps: { recovery: hashedRecoveryOTP, expiration: new Date(Date.now() + parseInt(process.env.RESEND_OTP_TIME) * 60 * 1000), attemptNumber: 1 } });
 
   res.status(200).json({ msg: `please check your email`, recoveryToken });
 };
@@ -291,15 +320,19 @@ export const resetPasswordService = async (req, res) => {
 
   // compaire the OTPs together
   const otpIsMatched = await bycrpt.compare(otp.toString(), correctOtp);
+
   if (!otpIsMatched) {
-    return res.status(400).json({ msg: `worng OTP, please try again` });
+    const remainingTime = (user.otps.expiration - new Date()) / 1000;
+    const remainingTimeMessage = remainingTime < 0 ? `Now` : `after ${remainingTime} sec`;
+
+    return res.status(400).json({ msg: `worng OTP, please try again , you can resend email ${remainingTimeMessage}` });
   }
 
   // if it is correct , hash the new password
   const hashedPassword = await bycrpt.hash(newPassword, parseInt(process.env.SALT_ROUNDS));
 
   // update the password
-  await user.updateOne({ password: hashedPassword, otps: { recovery: undefined } });
+  await user.updateOne({ password: hashedPassword, otps: {} });
 
   res.status(200).json({ msg: `Password has been changed, Now try to login` });
 };
@@ -364,4 +397,61 @@ export const updatePasswordServices = async (req, res) => {
   });
 
   res.status(200).json({ msg: `password has been updated. Now please log in again` });
+};
+
+export const resendEmailService = async (req, res) => {
+  // get user data from token
+  const { user } = req.loggedData;
+
+  // check the user attempts
+  if (user.otps?.attemptNumber > 3) {
+    if (Date.now() - user.otps.lastEmailAttempt > 1000 * 60 * 5) {
+      user.otps.attemptNumber = 0;
+      await user.save();
+    }
+    return res.status(400).json({ msg: `too many attempts , try again after 5 mins` });
+  }
+
+  //create new otp
+  const nanoid = customAlphabet("1234567890", 6);
+  const newOTP = nanoid();
+
+  const hashedNewOTP = await bycrpt.hash(newOTP, parseInt(process.env.SALT_ROUNDS));
+
+  // check if the this is recovery or registration
+  let emailContent;
+  if (user.otps?.confirm) {
+    user.otps.confirm = hashedNewOTP;
+    emailContent = {
+      to: user.email,
+      subject: `Email Confirmation`,
+      content: `<h1>
+      Your Confirmation otp is
+      <h2>${newOTP}</h2>
+      </h1>;`,
+    };
+  } else if (user.otps?.recovery) {
+    user.otps.recovery = hashedNewOTP;
+    emailContent = {
+      to: user.email,
+      subject: `password recover`,
+      content: `<h1>
+      Your otp to recover the password is
+      <h2>${newOTP}</h2>
+      </h1>;`,
+    };
+  }
+
+  // send new email
+  emitter.emit("sendEmail", emailContent);
+
+  // update the attempts
+  const newAttempt = user.otps.attemptNumber + 1;
+
+  // send the new data to the DB
+  user.otps.attemptNumber = newAttempt;
+  user.otps.lastEmailAttempt = Date.now();
+  await user.save();
+
+  res.status(200).json({ msg: `email has been send again` });
 };

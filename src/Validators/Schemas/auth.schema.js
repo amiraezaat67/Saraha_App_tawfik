@@ -13,7 +13,6 @@ export const registerationSchema = {
 
 export const confirmSchema = {
   body: Joi.object({
-    email: Joi.string().required().email(),
     otp: Joi.number(),
   }),
 };
@@ -34,7 +33,7 @@ export const forgetPasswordSchema = {
 export const resetPasswordSchema = {
   body: Joi.object({
     newPassword: Joi.string().required(),
-    otp: Joi.string(),
+    otp: Joi.number(),
   }),
 };
 

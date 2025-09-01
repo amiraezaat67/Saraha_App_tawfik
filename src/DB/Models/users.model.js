@@ -40,6 +40,15 @@ const usersSchema = mongoose.Schema(
       recovery: {
         type: String,
       },
+      expiration: {
+        type: Date,
+      },
+      attemptNumber: {
+        type: Number,
+      },
+      lastEmailAttempt: {
+        type: Date,
+      },
     },
     isConfirmed: {
       type: Boolean,

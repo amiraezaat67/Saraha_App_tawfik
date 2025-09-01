@@ -4,10 +4,10 @@ import { users } from "../DB/Models/index.js";
 
 export const authenticationMiddleware = async (req, res, next) => {
   // get the token from the header
-  const { accesstoken, recoverytoken } = req.headers;
+  const { accesstoken, authtoken } = req.headers;
 
   // check if the token is not send
-  if (!accesstoken && !recoverytoken) {
+  if (!accesstoken && !authtoken) {
     return res.status(400).json({ msg: `insert A token` });
   }
 
@@ -18,8 +18,8 @@ export const authenticationMiddleware = async (req, res, next) => {
     if (!tokenData.jti) {
       return res.status(400).json({ msg: `invalid token` });
     }
-  } else if (recoverytoken) {
-    tokenData = verifyToken(recoverytoken, process.env.JWT_RECOVERY_KEY);
+  } else if (authtoken) {
+    tokenData = verifyToken(authtoken, process.env.JWT_AUTH_KEY);
     if (!tokenData.jti) {
       return res.status(400).json({ msg: `invalid token` });
     }
