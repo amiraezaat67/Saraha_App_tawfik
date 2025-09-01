@@ -2,9 +2,11 @@ import "./config.js";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import cron from "node-cron";
 import { dbConnection } from "./DB/db.connection.js";
 import { userRouter, authRouter, messagesRouter } from "./Modules/controllers.index.js";
 import { limit } from "./Middlewares/index.js";
+import { blackListTokens, users } from "./DB/Models/index.js";
 
 const app = express();
 dbConnection();
@@ -19,6 +21,16 @@ const corsOptions = {
     }
   },
 };
+
+// cron.schedule("*/15 * * * *", async () => {
+//   // check every 15 min if there are any otps that has been expired
+//   await users.deleteMany({ "otps.expiration": { $lt: Date.now() } });
+// });
+
+cron.schedule("* */24 * * *", async () => {
+  // check every 24 hours if there are any revoked token that has been expired
+  await blackListTokens.deleteMany({ expirationDate: { $lt: Date.now() } });
+});
 
 app.use(express.json());
 app.use(

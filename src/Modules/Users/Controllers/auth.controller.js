@@ -11,8 +11,9 @@ authRouter.post("/login", validationMiddleware(loginSchema), services.loginServi
 authRouter.post("/logout", authenticationMiddleware, services.logoutService);
 authRouter.post("/forget-Password", validationMiddleware(forgetPasswordSchema), services.forgetPasswordService);
 authRouter.post("/refresh-token", services.refreshTokenServices);
+authRouter.post("/resend-email", authenticationMiddleware, services.resendEmailService);
 
-authRouter.patch("/confirm", validationMiddleware(confirmSchema), services.confirmService);
+authRouter.patch("/confirm", authenticationMiddleware, validationMiddleware(confirmSchema), services.confirmService);
 authRouter.patch("/Reset-Password", authenticationMiddleware, validationMiddleware(resetPasswordSchema), services.resetPasswordService);
 authRouter.patch("/update-password", authenticationMiddleware, validationMiddleware(updatePasswordSchema), services.updatePasswordServices);
 
