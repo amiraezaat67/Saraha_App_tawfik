@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { genderEnum, providerEnum } from "../../common/Enums/user.enum.js";
+import { type } from "node:os";
 
 const usersSchema = mongoose.Schema(
   {
@@ -32,6 +33,9 @@ const usersSchema = mongoose.Schema(
       type: String,
       enum: Object.values(genderEnum),
       default: genderEnum.MALE,
+    },
+    profilePic: {
+      type: String,
     },
     otps: {
       confirm: {

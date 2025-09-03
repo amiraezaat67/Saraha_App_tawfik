@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon"
+    "dev": "SET NODE_ENV=Loacl&& nodemon"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoos": "^0.0.1-security",
     "mongoose": "^8.17.0",
+    "multer": "^2.0.2",
     "nanoid": "^5.1.5",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",

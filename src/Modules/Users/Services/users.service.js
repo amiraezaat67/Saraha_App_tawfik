@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { users, messages } from "../../../DB/Models/index.js";
+import fs from "node:fs";
 
 export const updateService = async (req, res) => {
   const {
@@ -24,7 +25,7 @@ export const updateService = async (req, res) => {
 export const deleteService = async (req, res) => {
   // get the authenticated user
   const {
-    user: { _id },
+    user: { _id, profilePic },
   } = req.loggedData;
 
   // start session
@@ -34,6 +35,11 @@ export const deleteService = async (req, res) => {
 
   // start Transaction
   session.startTransaction();
+
+  // delete the photo from storage
+  if (profilePic) {
+    fs.unlinkSync(profilePic);
+  }
 
   // delete the user
   const deletedUser = await users.findByIdAndDelete({ _id }, { session });
@@ -129,4 +135,30 @@ export const deleteMessageService = async (req, res) => {
   await messages.deleteOne({ _id: messageId });
 
   res.status(200).json({ msg: `message has been deleted` });
+};
+
+export const uploadProfilePictureService = async (req, res) => {
+  const { user } = req.loggedData;
+
+  // upload the profile pic
+  user.profilePic = req.file?.path;
+  await user.save();
+
+  res.status(200).json({ msg: `Profile pic added successfully`, file: req.file });
+};
+
+export const deleteProfilePictureService = async (req, res) => {
+  const { user } = req.loggedData;
+
+  if (!user.profilePic) {
+    return res.status(400).json({ msg: `there is no profile pic` });
+  }
+  // delete the photo from storage
+  fs.unlinkSync(user.profilePic);
+
+  // delete the photo path from db
+  user.profilePic = undefined;
+  await user.save();
+
+  res.status(200).json({ msg: `Profile pic deleted successfully` });
 };
