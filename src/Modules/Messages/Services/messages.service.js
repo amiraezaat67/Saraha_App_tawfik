@@ -28,7 +28,7 @@ export const publicMessagesService = async (req, res) => {
   }
 
   // get the public messages of this user
-  const publicMessage = await messages.find({ status: "public" }, "-_id content");
+  const publicMessage = await messages.find({ status: "public", receiverId: userId }, "-_id content");
 
   res.status(200).json(publicMessage);
 };

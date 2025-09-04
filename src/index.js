@@ -6,7 +6,6 @@ import { dbConnection } from "./DB/db.connection.js";
 import { userRouter, authRouter, messagesRouter } from "./Modules/controllers.index.js";
 import { limit } from "./Middlewares/index.js";
 import { startCronJobs } from "./Utils/index.js";
-import { fileExtensions } from "./Common/Constants/file.constant.js";
 
 const app = express();
 dbConnection();

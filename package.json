@@ -22,7 +22,6 @@
     "helmet": "^8.1.0",
     "joi": "^18.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoos": "^0.0.1-security",
     "mongoose": "^8.17.0",
     "multer": "^2.0.2",
     "nanoid": "^5.1.5",
