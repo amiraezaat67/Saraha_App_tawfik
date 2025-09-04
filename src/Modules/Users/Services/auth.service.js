@@ -128,13 +128,20 @@ export const gmailAuthService = async (req, res) => {
     }
   }
 
-  // generate token
+  // check for the number of logged in devices
+  if (user.devicesConnected?.length >= process.env.MAX_DEVICE_CONNECTED) {
+    return res.status(400).json({ msg: `You need to signOut from one of your connected devices to login` });
+  }
+
+  // generate tokens
   const accessTokenId = uuidV4();
+  const refreshTokenId = uuidV4();
   // access token
   const accessToken = generateToken(
     {
       _id: user._id,
       email,
+      refreshTokenId,
     },
     process.env.JWT_ACCESS_KEY,
     {
@@ -152,9 +159,15 @@ export const gmailAuthService = async (req, res) => {
     process.env.JWT_REFRESH_KEY,
     {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      jwtid: uuidV4(),
+      jwtid: refreshTokenId,
     }
   );
+
+  // insert the connected device data
+  const { jti, exp } = decodeToken(refreshToken);
+
+  user.devicesConnected?.push({ jti, exp: new Date(exp * 1000) });
+  await user.save();
 
   res.status(200).json({ msg: `User loggin successfully`, accessToken, refreshToken });
 };
