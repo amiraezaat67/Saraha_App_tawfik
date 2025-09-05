@@ -1,10 +1,17 @@
-import { users, blackListTokens } from "../../../DB/Models/index.js";
-import { generateToken, verifyToken, encrypt, emitter, decodeToken } from "../../../Utils/index.js";
 import bycrpt from "bcrypt";
 import { customAlphabet, nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
 import { OAuth2Client } from "google-auth-library";
 
+import { users, blackListTokens } from "../../../DB/Models/index.js";
+import { generateToken, verifyToken, encrypt, emitter, decodeToken } from "../../../Utils/index.js";
+
+/**
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @API {POST} /api/auth/register Register
+ * @description Register a new user with hashed password and encrypted phone number
+ */
 export const registerServices = async (req, res) => {
   // get data from body
   const { firstName, lastName, email, password, phoneNumber, gender } = req.body;
@@ -16,6 +23,7 @@ export const registerServices = async (req, res) => {
       return res.status(400).json({ msg: `User Already exist, Try to login using google` });
     }
     if (findUser.isConfirmed == false) {
+      // we shouldn't delete the user if he is not confirmed without any notification for him at least
       await users.findByIdAndDelete(findUser._id);
     }
   }
@@ -51,10 +59,11 @@ export const registerServices = async (req, res) => {
     phoneNumber: encryptedPhoneNumber,
     gender,
     otps: { confirm: hashedOTP, expiration: new Date(Date.now() + parseInt(process.env.RESEND_OTP_TIME) * 60 * 1000), attemptNumber: 1 },
-    providers: "local",
+    providers: "local",//Use the generated enum providerEnum.LOCAL
   });
 
   // create auth token
+  // What this token refering to ?
   const authenticationToken = generateToken(
     {
       _id: user._id,
@@ -96,14 +105,14 @@ export const gmailAuthService = async (req, res) => {
     user.email = email;
     user.firstName = given_name;
     user.lastName = family_name ? family_name : user.lastName;
-    user.providers = "google";
+    user.providers = "google"; //Use the generated enum providerEnum.GOOGLE
     await user.save();
   }
 
   // if user is not logged in using google:
   else {
     // check if this user is not logged in using local signup
-    const localUser = await users.findOne({ email, providers: "local" });
+    const localUser = await users.findOne({ email, providers: "local" }); //Use the generated enum providerEnum.LOCAL
     if (localUser) {
       user = localUser;
       user.email = email;
@@ -112,7 +121,7 @@ export const gmailAuthService = async (req, res) => {
       user.isConfirmed = true;
       user.googleSub = sub;
       user.otps.confirm = undefined;
-      user.providers = "google";
+      user.providers = "google"; //Use the generated enum providerEnum.GOOGLE
       await user.save();
     } else {
       // create new user
@@ -164,6 +173,15 @@ export const gmailAuthService = async (req, res) => {
   );
 
   // insert the connected device data
+
+  /**
+   * @comment :  why we need to decode the token - all the required data already with us 
+      * jti => refreshTokenId 
+      * exp => process.env.JWT_REFRESH_EXPIRES_IN
+      * user.devicesConnected?.push({ jti:refreshTokenId, exp: new Date(process.env.JWT_REFRESH_EXPIRES_IN * 1000) });
+      * 
+   */
+  
   const { jti, exp } = decodeToken(refreshToken);
 
   user.devicesConnected?.push({ jti, exp: new Date(exp * 1000) });
@@ -273,6 +291,9 @@ export const loginService = async (req, res) => {
   res.status(200).json({ msg: `User logged In successfully`, accessToken, refreshToken });
 };
 
+/**
+ * @comment : we need to revoke accessToken and refreshToken
+ */
 export const logoutService = async (req, res) => {
   // get the token
   const { user, tokenData } = req.loggedData;
@@ -373,6 +394,9 @@ export const resetPasswordService = async (req, res) => {
   res.status(200).json({ msg: `Password has been changed, Now try to login` });
 };
 
+/**
+ * @comment : It's better to create a new middlware for verifying the refreshtoken because we need to verify the refresh token also on the logout
+ */
 export const refreshTokenServices = async (req, res) => {
   // get the refreshed token
   const { refreshtoken } = req.headers;
@@ -427,6 +451,9 @@ export const updatePasswordServices = async (req, res) => {
   // save the new password in the DB
   user.save();
 
+  /**
+   * @comment : we need to revoke the REFRESH token also
+   */
   // Revoke the token
   blackListTokens.create({
     tokenId: tokenData.jti,
@@ -436,6 +463,10 @@ export const updatePasswordServices = async (req, res) => {
   res.status(200).json({ msg: `password has been updated. Now please log in again` });
 };
 
+
+/**
+ * @comment : How the user is already logged in and on the same time he asks for sending otp for confirmation or recovery ??
+ */
 export const resendEmailService = async (req, res) => {
   // get user data from token
   const { user } = req.loggedData;

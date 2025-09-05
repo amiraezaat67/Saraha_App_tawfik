@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { genderEnum, providerEnum } from "../../common/Enums/user.enum.js";
-import { type } from "node:os";
 
 const usersSchema = mongoose.Schema(
   {
@@ -37,6 +36,7 @@ const usersSchema = mongoose.Schema(
     profilePic: {
       type: String,
     },
+    // if we will make all these OTPs so it's better to seperate it on different collection
     otps: {
       confirm: {
         type: String,
@@ -64,6 +64,7 @@ const usersSchema = mongoose.Schema(
       enum: Object.values(providerEnum),
       default: providerEnum.LOCAL,
     },
+    // Separete this on different collection
     devicesConnected: [
       {
         jti: { type: String },

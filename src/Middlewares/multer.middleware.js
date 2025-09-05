@@ -2,7 +2,7 @@ import multer from "multer";
 import fs from "node:fs";
 import { fileExtensions, fileType } from "../Common/Constants/file.constant.js";
 
-const CreateFolde = (path) => {
+const CreateFolder = (path) => {
   fs.mkdirSync(path, { recursive: true });
 };
 
@@ -10,7 +10,7 @@ export const localUpload = ({ path = `sample`, limits = {} }) => {
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       const filePath = `Uploads/${path}`;
-      CreateFolde(filePath);
+      CreateFolder(filePath);
       cb(null, filePath);
     },
     filename: function (req, file, cb) {

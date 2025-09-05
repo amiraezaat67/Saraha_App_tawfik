@@ -28,6 +28,7 @@ export const publicMessagesService = async (req, res) => {
   }
 
   // get the public messages of this user
+  /** @comment : get the public string from the enum messagePrivicyEnum.PUBLIC */
   const publicMessage = await messages.find({ status: "public", receiverId: userId }, "-_id content");
 
   res.status(200).json(publicMessage);

@@ -3,13 +3,12 @@ import { users, messages } from "../../../DB/Models/index.js";
 import fs from "node:fs";
 
 export const updateService = async (req, res) => {
-  const {
-    user: { _id },
-  } = req.loggedData;
+  const { user: { _id } } = req.loggedData;
   const { firstName, lastName, email, gender } = req.body;
 
   // check if ths email is already exist
   if (email) {
+    // duplicatedUser not dublicatedUser - only mis-spelling
     const dublicatedUser = await users.findOne({ email });
     if (dublicatedUser._id.toString() != _id.toString()) {
       return res.status(400).json({ msg: `this email is already exist` });
@@ -60,15 +59,19 @@ export const deleteService = async (req, res) => {
 
 export const listUsersServices = async (req, res) => {
   // get all users
-
   const listedUsers = await users.find().select("-password -phoneNumber -otps");
-  let confirmedUsers = [];
+  
+  /** @comment : You can apply a condition in the find method directly - better performance */
+  // const confirmedUsers = await users.find({ isConfirmed: true }).select("-password -phoneNumber -otps");
+  
+  /** @comment : It's better to use filter instead of for-of loop - for your info if you have another case like this */
+  // let  confirmedUsers = listedUsers.filter((user) => user.isConfirmed);
 
-  for (const user of listedUsers) {
-    if (user.isConfirmed) {
-      confirmedUsers.push(user);
-    }
-  }
+  // for (const user of listedUsers) {
+  //   if (user.isConfirmed) {
+  //     confirmedUsers.push(user);
+  //   }
+  // }
 
   res.status(200).json(confirmedUsers);
 };
@@ -78,6 +81,7 @@ export const getProfileDataServices = async (req, res) => {
   const { id } = req.params;
 
   // check if the user is exist and confirmed
+  /**@comment : Why find and not findOne ? */
   const user = await users.find({ _id: id, isConfirmed: true }, "firstName lastName -_id").lean({ virsual: false });
 
   if (user.length == 0) {
@@ -139,6 +143,9 @@ export const deleteMessageService = async (req, res) => {
 
 export const uploadProfilePictureService = async (req, res) => {
   const { user } = req.loggedData;
+  
+  /**@comment : It's better here to return an error if there is no file sent  */
+  if(!req.file) return res.status(400).json({ msg: `no file sent, please upload a file` });
 
   // upload the profile pic
   user.profilePic = req.file?.path;

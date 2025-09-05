@@ -1,6 +1,7 @@
 import { verifyToken } from "../Utils/index.js";
-import { blackListTokens } from "../DB/Models/index.js";
-import { users } from "../DB/Models/index.js";
+// import { blackListTokens } from "../DB/Models/index.js";
+// import { users } from "../DB/Models/index.js";
+import { users   , blackListTokens } from "../DB/Models/index.js";
 
 export const authenticationMiddleware = async (req, res, next) => {
   // get the token from the header
